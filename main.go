@@ -20,6 +20,7 @@ import (
 func main() {
 	a := app.NewWithID("com.watermark")
 	w := a.NewWindow("图片处理")
+	config := LoadConfig()
 
 	w.Resize(fyne.NewSize(800, 500))
 
@@ -35,7 +36,7 @@ func main() {
 				return
 			}
 			path := uri.Path()
-			showFiles(path, list)
+			showFiles(config, path, list)
 		}, w)
 	})
 
@@ -43,14 +44,13 @@ func main() {
 		btn, nil, nil, nil,
 		container.NewScroll(list),
 	))
-	LoadConfig()
 	w.ShowAndRun()
 }
 
-func showFiles(dir string, output *widget.Entry) {
+func showFiles(config *Config, dir string, output *widget.Entry) {
 	var (
 		err    error
-		images = make([]SegmentedUploadImagesT, 0)
+		images = make([]UploadImagesT, 0)
 	)
 	output.SetText(fmt.Sprintf("开始读取文件：%v\n", carbon.Now().ToDateTimeString()))
 	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -70,15 +70,15 @@ func showFiles(dir string, output *widget.Entry) {
 		)
 
 		output.SetText(output.Text + line)
-		images = append(images, SegmentedUploadImagesT{FilePath: path, StoreKey: fmt.Sprintf("%v%v", uuid.NewString(), filepath.Ext(path))})
+		images = append(images, UploadImagesT{FilePath: path, StoreKey: fmt.Sprintf("%v%v", uuid.NewString(), filepath.Ext(path))})
 		return nil
 	})
 	output.SetText(output.Text + fmt.Sprintf("文件数量：%d\n", len(images)))
-	if len(images) > 50 {
-		output.SetText(output.Text + "文件数量不能超过50")
+	if len(images) > int(config.MaxFileNum) {
+		output.SetText(output.Text + fmt.Sprintf("文件数量不能超过%d", config.MaxFileNum))
 	}
 	var ret *imagex.CommitUploadImageResult
-	ret, err = UploadImages(images)
+	ret, err = NewImageX().UploadImages(images)
 	if err != nil {
 		log.Println(fmt.Sprintf("上传出错：%v", err))
 	} else {
